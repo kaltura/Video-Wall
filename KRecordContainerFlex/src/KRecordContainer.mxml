@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" 
+				horizontalAlign="center"
+				creationComplete="application1_creationCompleteHandler(event)" 
+				width="750" height="600"
+				paddingLeft="0" paddingRight="0" >
+	<mx:Label text="Add Your Video" fontSize="20" horizontalCenter="0" top="0"/>
+	<mx:SWFLoader id="myrecorder" width="640" height="480"
+				  complete="finishedLoadingKupload(event)" 
+				  autoLoad="false" horizontalCenter="0" verticalCenter="0"/>
+	<mx:Script>
+		<![CDATA[
+			
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+
+			private const sessionservice:String = "http://www.kaltura.com/api_v3/?service=session&action=startwidgetsession";
+			private var _getWidgetSession:URLLoader;
+			private var _ks:String;
+			
+			private var _pid:String;
+
+			private function finishedLoadingKupload(event:Event):void {
+				_pid = Application.application.parameters.partnerid;
+				//wait for the krecord view to load -
+				myrecorder.addEventListener("viewReady", accessData);
+				//when loading inside another flash application, to pass initialization 
+				// parameters to the krecord application, use the parameters object
+				//if loaded through HTML directly, the initialization will be directed 
+				// through the embed object flashVars.
+				
+				myrecorder.content['pushParameters'] = {entryTags: "videowall", themeUrl: "skin.swf", localeUrl: "locale.xml", autoPreview: "1", pid: _pid, subpid: _pid+"00", ks: _ks};
+//				myrecorder.content.width=640;
+//				myrecorder.content.height=480;
+			}
+
+			private function accessData(event:Event):void {
+				//to access krecord application, use the application property:
+//				trace("Available microphones: " + myrecorder.content["application"].getMicrophones());
+				myrecorder.content.addEventListener("addEntryFault", fault);
+				myrecorder.content.addEventListener("addEntryResult", success);
+			}
+
+			
+			
+			
+			private function loadKrecord(e:Event):void {
+				clearSessionListeners();
+				var xml:XML = new XML(e.target.data);
+				_ks = xml.result.ks.text();
+				myrecorder.load("KRecord.swf");
+			}
+			
+			protected function success(e:Event):void {
+				var txt:String = "click yes to go back to the " +
+					"Video Wall or no to record another video. \n" +
+					"If your video is not displayed instantly don't " +
+					"give up - you might need to refresh the page to see it.";
+				Alert.show(txt, "Video Added.", Alert.YES|Alert.NO, this, onAlertClosed);			
+			}
+			
+			protected function onAlertClosed(e:CloseEvent):void {
+				if (e.detail == Alert.YES){
+					var rq:URLRequest = new URLRequest(Application.application.parameters.playerurl);
+					navigateToURL(rq, "_self");
+				}
+				
+			}
+
+			
+			/**
+			 * get KS and initiate loading the krecord
+			 * */
+			protected function application1_creationCompleteHandler(event:FlexEvent):void {
+				var rq:URLRequest = new URLRequest(sessionservice);
+				var variables:URLVariables = new URLVariables();
+				variables.widgetId = "_309";
+				rq.data = variables;
+				rq.method = URLRequestMethod.POST;
+				_getWidgetSession = new URLLoader();
+				_getWidgetSession.addEventListener(Event.COMPLETE, loadKrecord);
+				_getWidgetSession.addEventListener(SecurityErrorEvent.SECURITY_ERROR, fault);
+				_getWidgetSession.addEventListener(IOErrorEvent.IO_ERROR, fault);
+				_getWidgetSession.load(rq);
+			}
+
+			
+			private function clearSessionListeners():void {
+				_getWidgetSession.removeEventListener(Event.COMPLETE, finishedLoadingKupload);
+				_getWidgetSession.removeEventListener(SecurityErrorEvent.SECURITY_ERROR, fault);
+				_getWidgetSession.removeEventListener(IOErrorEvent.IO_ERROR, fault);
+			}
+			
+
+			private function fault(e:Event = null):void {
+				Alert.show("Somewhere, Something went terribly wrong.", "Please try again"); 
+			}
+		]]>
+	</mx:Script>
+	
+</mx:Application>
